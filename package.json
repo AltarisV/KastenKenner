@@ -1,0 +1,13 @@
+{
+  "name": "ml-vs-hardcode-demo",
+  "version": "1.0.0",
+  "description": "Browser-based side-by-side demo comparing an Edge Impulse WASM model with a hardcoded rule-based classifier, both fed from live Arduino serial data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "license": "MIT"
+}

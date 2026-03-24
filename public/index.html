@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ML vs Hardcode Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header>
+    <h1>ML vs Hardcode Demo</h1>
+    <div class="toolbar">
+      <button id="btn-connect">Connect serial</button>
+      <button id="btn-clear">Clear buffers</button>
+      <span id="status" class="status disconnected">disconnected</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Top row: classifier results + sensor info + bottle counter -->
+    <section class="cards">
+      <div class="card" id="card-hardcode">
+        <h2>Hardcoded Classifier</h2>
+        <p class="label" id="hc-label">—</p>
+        <p class="debug" id="hc-debug"></p>
+        <div class="bottle-row">
+          <span class="bottle-total" id="hc-total">0</span> Flaschen
+          <span class="bottle-detail">(Voll: <span id="hc-full">0</span> · Leer: <span id="hc-empty">0</span>)</span>
+        </div>
+        <button class="btn-reset-count" id="hc-reset">Zähler reset</button>
+      </div>
+
+      <div class="card" id="card-ml">
+        <h2>Edge Impulse Model</h2>
+        <p class="label" id="ml-label">—</p>
+        <p class="debug" id="ml-debug"></p>
+        <div class="bottle-row">
+          <span class="bottle-total" id="ml-total">0</span> Flaschen
+          <span class="bottle-detail">(Voll: <span id="ml-full">0</span> · Leer: <span id="ml-empty">0</span>)</span>
+        </div>
+        <button class="btn-reset-count" id="ml-reset">Zähler reset</button>
+      </div>
+
+      <div class="card" id="card-sensor">
+        <h2>Sensor Info</h2>
+        <table>
+          <tr><td>Last raw</td><td id="sensor-raw">—</td></tr>
+          <tr><td>Last delta</td><td id="sensor-delta">—</td></tr>
+          <tr><td>Gewicht</td><td id="sensor-grams">—</td></tr>
+          <tr><td>Frames in buffer</td><td id="sensor-frames">0</td></tr>
+          <tr><td>Expected frames</td><td id="sensor-expected">9</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- Calibration -->
+    <section class="calibration-section">
+      <h2>Kalibrierung <span id="cal-status" class="cal-badge">nicht kalibriert</span></h2>
+      <p class="cal-hint">
+        Schritt 1: Leeren Kasten auf die Waage stellen → <b>Leerer Kasten</b> drücken (= Tare).<br>
+        Schritt 2: Eine <b>volle</b> Flasche reinstellen → <b>Volle Flasche rein</b> drücken (5 s Countdown). Daraus wird die Gramm-Umrechnung berechnet (890 g).<br>
+        Schritt 3: Eine <b>leere</b> Flasche reinstellen → <b>Leere Flasche rein</b> drücken (5 s Countdown).<br>
+        Die Kalibrierung wird automatisch gespeichert.
+      </p>
+      <div class="cal-buttons">
+        <button class="cal-btn" id="cal-idle">&#x1f4e6; Leerer Kasten (Tare)</button>
+        <button class="cal-btn" id="cal-put-full">&#x1f37a; Volle Flasche rein (890 g)</button>
+        <button class="cal-btn" id="cal-put-empty">&#x1f37b; Leere Flasche rein</button>
+      </div>
+      <div class="cal-buttons" style="margin-top:0.4rem; align-items:center">
+        <label class="cal-cap-label">Max. Flaschen im Kasten:
+          <input type="number" id="cal-crate-cap" min="1" max="20" value="4" class="cal-cap-input">
+        </label>
+        <button id="btn-cal-clear" class="cal-btn cal-btn-danger">Kalibrierung zurücksetzen</button>
+      </div>
+      <p class="cal-bottle-weights" id="cal-bottle-weights"></p>
+      <p class="cal-countdown" id="cal-countdown"></p>
+      <table class="cal-table" id="cal-table">
+        <thead><tr><th>Aktion</th><th>Δraw</th><th>sd</th><th>Gramm</th><th>Zeitpunkt</th></tr></thead>
+        <tbody id="cal-tbody"></tbody>
+      </table>
+    </section>
+
+    <!-- Chart -->
+    <section class="chart-section">
+      <h2>Live Sensor Chart</h2>
+      <canvas id="chart" width="900" height="260"></canvas>
+    </section>
+
+    <!-- Event log -->
+    <section class="log-section">
+      <h2>Event Log</h2>
+      <ul id="event-log"></ul>
+    </section>
+  </main>
+
+  <!--
+    Edge Impulse WASM export files.
+    edge-impulse-standalone.js sets up the global Module object.
+    run-impulse.js provides the EdgeImpulseClassifier class.
+    These must be loaded BEFORE app.js.
+  -->
+  <script src="model/edge-impulse-standalone.js"></script>
+  <script src="model/run-impulse.js"></script>
+
+  <!-- Application modules -->
+  <script src="hardcode.js"></script>
+  <script src="chart.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
