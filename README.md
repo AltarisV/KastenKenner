@@ -1,7 +1,7 @@
 # KastenKenner
 
 > Browser-basiertes System zur Erkennung und Zählung von Flaschen in
-> einem Bierkasten mittels einer **TAL220B Load Cell** an einem **ESP32**,
+> einem Bierkasten mittels einer **TAL220B Load Cell** an einem **Arduino Nano 33 BLE Sense**,
 > verglichen über einen **Edge Impulse WASM-Modell** und einen
 > **hardcoded gewichtsbasierten Classifier**.
 
@@ -9,7 +9,7 @@
 
 ## Was dieses Projekt macht
 
-Ein ESP32 mit einer TAL220B Load Cell (über einen NAU7802 ADC) misst
+Ein Arduino Nano 33 BLE Sense mit einer TAL220B Load Cell (über einen NAU7802 ADC) misst
 kontinuierlich das Gewicht auf dem Bierkasten und sendet die Daten per
 USB Serial an den Browser. Dort laufen zwei Classifier parallel:
 
@@ -25,10 +25,10 @@ und Event-Log.
 
 ## Hardware
 
-- **Arduino Nano ESP32**
+- **Arduino Nano 33 BLE Sense**
 - **TAL220B Load Cell** (bis 5 kg)
 - **NAU7802** Qwiic Scale (SparkFun)
-- Verbindung: Load Cell → NAU7802 → I²C → ESP32 → USB → PC
+- Verbindung: Load Cell → NAU7802 → I²C → Nano 33 BLE Sense → USB → PC
 
 Der Arduino-Sketch liegt im Projektroot: `sketch_kastenkenner_model.ino.ino`
 
@@ -36,7 +36,7 @@ Der Arduino-Sketch liegt im Projektroot: `sketch_kastenkenner_model.ino.ino`
 
 ## Serielles Datenformat
 
-Der ESP32 sendet **eine Zeile pro Sample** bei **115200 Baud**, **5 Hz**:
+Der Nano 33 BLE Sense sendet **eine Zeile pro Sample** bei **115200 Baud**, **5 Hz**:
 
 ```
 raw,delta
@@ -96,7 +96,7 @@ Die Kalibrierung wird in `localStorage` gespeichert.
 - **Node.js** ≥ 16
 - **Chromium-basierter Browser** (Chrome, Chromium, Edge)  
   Web Serial ist **nicht** in Firefox oder Safari verfügbar.
-- ESP32 per USB verbunden, streamt Daten wie oben beschrieben.
+- Arduino Nano 33 BLE Sense per USB verbunden, streamt Daten wie oben beschrieben.
 - Unter Linux Mint (Snap-Chromium): `sudo snap connect chromium:raw-usb`
 
 ---
@@ -117,7 +117,7 @@ npm start
 
 Dann **http://localhost:3000** in Chromium öffnen.
 
-1. **Connect serial** klicken und den ESP32 auswählen.
+1. **Connect serial** klicken und den Arduino Nano 33 BLE Sense auswählen.
 2. Kalibrierung durchführen (Leerer Kasten → Volle Flasche → Leere Flasche).
 3. Beide Classifier-Karten aktualisieren sich live.
 
@@ -143,7 +143,7 @@ Siehe [`public/model/MODEL_README.md`](public/model/MODEL_README.md) für Detail
 KastenKenner/
 ├── package.json
 ├── server.js                          ← Express Static Server (Port 3000)
-├── sketch_kastenkenner_model.ino.ino  ← ESP32 Arduino Sketch (TAL220B + NAU7802)
+├── sketch_kastenkenner_model.ino.ino  ← Arduino Sketch für Nano 33 BLE Sense (TAL220B + NAU7802)
 ├── README.md                          ← diese Datei
 └── public/
     ├── index.html         ← Haupt-UI
