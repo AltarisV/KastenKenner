@@ -1,36 +1,48 @@
-# ML vs Hardcode Demo
+# KastenKenner
 
-> Browser-based side-by-side comparison of an **Edge Impulse WebAssembly
-> model** and a **hardcoded rule-based classifier**, both receiving the
-> same live serial sensor stream from an Arduino / ESP32 with a load cell.
+> Browser-basiertes System zur Erkennung und Zählung von Flaschen in
+> einem Bierkasten mittels einer **TAL220B Load Cell** an einem **ESP32**,
+> verglichen über einen **Edge Impulse WASM-Modell** und einen
+> **hardcoded gewichtsbasierten Classifier**.
 
 ---
 
-## What this project does
+## Was dieses Projekt macht
 
-This demo connects to an Arduino over USB serial **directly from the
-browser** (using the Web Serial API).  Every incoming sensor line is fed
-to two classifiers in parallel:
+Ein ESP32 mit einer TAL220B Load Cell (über einen NAU7802 ADC) misst
+kontinuierlich das Gewicht auf dem Bierkasten und sendet die Daten per
+USB Serial an den Browser. Dort laufen zwei Classifier parallel:
 
-| Classifier | Description |
+| Classifier | Beschreibung |
 |---|---|
-| **Hardcoded** | Deterministic rules in `public/hardcode.js` — compares start/end means, standard deviation, and fixed thresholds. |
-| **Edge Impulse ML** | Runs the exported WASM model locally in the browser — no cloud calls. |
+| **Hardcoded** | Zustandsautomat in `public/hardcode.js` — erkennt Gewichtsänderungen, wartet auf Beruhigung (~2 s), vergleicht mit kalibrierten Flaschengewichten, unterstützt Multi-Flaschen-Erkennung und Selbstkorrektur via absolutem Gewicht. |
+| **Edge Impulse ML** | Exportiertes WASM-Modell, läuft lokal im Browser — keine Cloud-Aufrufe. |
 
-The UI shows both results side by side, along with live charts and an
-event log, so you can compare accuracy in real time.
+Die UI zeigt beide Ergebnisse nebeneinander mit Live-Chart, Flaschenzähler
+und Event-Log.
 
 ---
 
-## Expected serial input format
+## Hardware
 
-The Arduino must send **one line per sample** at **115200 baud**:
+- **Arduino Nano ESP32**
+- **TAL220B Load Cell** (bis 5 kg)
+- **NAU7802** Qwiic Scale (SparkFun)
+- Verbindung: Load Cell → NAU7802 → I²C → ESP32 → USB → PC
+
+Der Arduino-Sketch liegt im Projektroot: `sketch_kastenkenner_model.ino.ino`
+
+---
+
+## Serielles Datenformat
+
+Der ESP32 sendet **eine Zeile pro Sample** bei **115200 Baud**, **5 Hz**:
 
 ```
 raw,delta
 ```
 
-Example:
+Beispiel:
 
 ```
 -1246970,-268
@@ -38,120 +50,107 @@ Example:
 -1078290,168452
 ```
 
-- **raw** — the current load cell reading (integer)
-- **delta** — difference to the previous reading (integer)
-- 2 axes, matching the Edge Impulse project configuration
+- **raw** — Rohwert der Load Cell minus Tare-Offset (Integer)
+- **delta** — Differenz zum vorherigen Rohwert (Integer)
 
 ---
 
-## Model parameters
+## Kalibrierung
 
-| Parameter       | Value |
-|-----------------|-------|
-| Frequency       | 5 Hz  |
-| Window size     | 1800 ms |
-| Frames per window | **9** (5 × 1.8) |
-| Values per frame  | 2 (raw, delta) |
-| **Total model input** | **18 numeric values** |
+Die Kalibrierung erfolgt über die Browser-UI:
 
-The flattened input order is:
-`[raw₁, delta₁, raw₂, delta₂, … , raw₉, delta₉]`
+1. **Leerer Kasten (Tare)** — Kasten ohne Flaschen auf die Waage stellen
+2. **Volle Flasche rein (890 g)** — eine volle Bierflasche reinstellen (5 s Countdown)
+3. **Leere Flasche rein** — eine leere Flasche reinstellen (5 s Countdown)
+
+Daraus berechnet das System automatisch:
+- Gramm-pro-Roheinheit-Umrechnung (basierend auf dem bekannten Gewicht 890 g)
+- Erwartetes Gewicht für volle und leere Flaschen
+- Max. Kastenkapazität (einstellbar, Standard: 4)
+
+Die Kalibrierung wird in `localStorage` gespeichert.
+
+### Hardcoded Classifier Features
+
+- **Zustandsautomat**: `stable` → `changing` → `settling` → Bestätigung
+- **Multi-Flaschen-Erkennung**: Erkennt gleichzeitiges Rein-/Rausnehmen mehrerer Flaschen
+- **Selbstkorrektur**: Zählerstand wird gegen absolutes Gewicht validiert und ggf. korrigiert
+- **Kastenkapazitäts-Constraint**: Zähler kann Maximum nicht überschreiten
 
 ---
 
-## Prerequisites
+## Model-Parameter
+
+| Parameter         | Wert |
+|-------------------|------|
+| Frequenz          | 5 Hz |
+| Fenstergröße      | 1800 ms |
+| Frames pro Fenster | **9** (5 × 1.8) |
+| Werte pro Frame   | 2 (raw, delta) |
+| **Model-Input**   | **18 numerische Werte** |
+
+---
+
+## Voraussetzungen
 
 - **Node.js** ≥ 16
-- **Chromium-based browser** (Chrome, Chromium, Edge).  
-  Web Serial is **not** available in Firefox or Safari.
-- Arduino / ESP32 connected via USB, streaming lines as described above.
+- **Chromium-basierter Browser** (Chrome, Chromium, Edge)  
+  Web Serial ist **nicht** in Firefox oder Safari verfügbar.
+- ESP32 per USB verbunden, streamt Daten wie oben beschrieben.
+- Unter Linux Mint (Snap-Chromium): `sudo snap connect chromium:raw-usb`
 
 ---
 
 ## Installation
 
 ```bash
-cd ml-vs-hardcode-demo
 npm install
 ```
 
 ---
 
-## Running
+## Starten
 
 ```bash
 npm start
 ```
 
-Then open **http://localhost:3000** in Chromium.
+Dann **http://localhost:3000** in Chromium öffnen.
 
-1. Click **Connect serial** and select the Arduino's serial port.
-2. Both classifier cards will start updating live.
+1. **Connect serial** klicken und den ESP32 auswählen.
+2. Kalibrierung durchführen (Leerer Kasten → Volle Flasche → Leere Flasche).
+3. Beide Classifier-Karten aktualisieren sich live.
 
 ---
 
-## Edge Impulse WASM export files
+## Edge Impulse WASM Export
 
-The model files live in `public/model/`.  
-See [`public/model/MODEL_README.md`](public/model/MODEL_README.md) for details.
-
-**Quick steps:**
+Die Model-Dateien liegen in `public/model/`.  
+Siehe [`public/model/MODEL_README.md`](public/model/MODEL_README.md) für Details.
 
 1. Edge Impulse Studio → **Deployment** → **WebAssembly (browser / SIMD)** → **Build**.
-2. Download and extract the ZIP.
-3. Copy these three files into `public/model/`:
+2. ZIP herunterladen und entpacken.
+3. Diese drei Dateien nach `public/model/` kopieren:
    - `edge-impulse-standalone.js`
    - `edge-impulse-standalone.wasm`
    - `run-impulse.js`
 
-If the exported wrapper API differs from the current one, adjust the
-model adapter section in `public/app.js` (search for
-`runModelInference`).
-
 ---
 
-## Hardcoded classifier thresholds
-
-The thresholds in `public/hardcode.js` are **placeholders**.  
-Run the demo, look at the debug values printed in the "Hardcoded
-Classifier" card, and tune the constants (`IDLE_DIFF_THRESHOLD`,
-`PUT_DIFF_THRESHOLD`, etc.) to match your real sensor behaviour.
-
----
-
-## Relationship to `edge-impulse-data-forwarder`
-
-You may currently be using:
-
-```bash
-edge-impulse-data-forwarder --clean --baud-rate 115200 --frequency 5
-```
-
-That command streams data **to** the Edge Impulse cloud for data
-collection and training.
-
-This demo app is **separate** — it reads the serial stream **directly
-in the browser** via Web Serial and performs inference locally with the
-exported WASM model.  The data forwarder and this demo **cannot** use
-the serial port at the same time; close the forwarder before starting
-the demo.
-
----
-
-## Project structure
+## Projektstruktur
 
 ```
-ml-vs-hardcode-demo/
+KastenKenner/
 ├── package.json
-├── server.js              ← Express static file server (port 3000)
-├── .gitignore
-├── README.md              ← this file
+├── server.js                          ← Express Static Server (Port 3000)
+├── sketch_kastenkenner_model.ino.ino  ← ESP32 Arduino Sketch (TAL220B + NAU7802)
+├── README.md                          ← diese Datei
 └── public/
-    ├── index.html         ← main UI
+    ├── index.html         ← Haupt-UI
     ├── styles.css
-    ├── app.js             ← serial input, model adapter, orchestration
-    ├── hardcode.js        ← rule-based classifier
-    ├── chart.js           ← rolling canvas chart
+    ├── app.js             ← Serial-Input, Model-Adapter, Flaschenzähler, Kalibrierungs-UI
+    ├── hardcode.js        ← Gewichtsbasierter Classifier mit Zustandsautomat
+    ├── chart.js           ← Rolling Canvas Chart
     └── model/
         ├── MODEL_README.md
         ├── edge-impulse-standalone.js
@@ -161,6 +160,6 @@ ml-vs-hardcode-demo/
 
 ---
 
-## License
+## Lizenz
 
 MIT
