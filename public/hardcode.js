@@ -73,12 +73,12 @@ function clearCalibration() {
 
 // ── Weight calibration (raw → grams) ────────────────────────────────
 
-const FULL_BOTTLE_G = 890; // known weight of a full beer bottle in grams
+const FULL_BOTTLE_G = 850; // known weight of a full beer bottle in grams
 
 /**
  * Auto-compute gramsPerUnit from idle + put_full calibration.
- * put_full.diff = raw change when placing one full 890 g bottle.
- * gramsPerUnit = 890 / diff  (diff is negative on this sensor, so
+ * put_full.diff = raw change when placing one full 850 g bottle.
+ * gramsPerUnit = 850 / diff  (diff is negative on this sensor, so
  * gramsPerUnit will be negative → rawToGrams returns positive for
  * added weight).
  */

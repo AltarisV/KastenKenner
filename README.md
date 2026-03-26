@@ -60,11 +60,11 @@ Beispiel:
 Die Kalibrierung erfolgt über die Browser-UI:
 
 1. **Leerer Kasten (Tare)** — Kasten ohne Flaschen auf die Waage stellen
-2. **Volle Flasche rein (890 g)** — eine volle Bierflasche reinstellen (5 s Countdown)
+2. **Volle Flasche rein (~850) g)** — eine volle Bierflasche reinstellen (5 s Countdown)
 3. **Leere Flasche rein** — eine leere Flasche reinstellen (5 s Countdown)
 
 Daraus berechnet das System automatisch:
-- Gramm-pro-Roheinheit-Umrechnung (basierend auf dem bekannten Gewicht 890 g)
+- Gramm-pro-Roheinheit-Umrechnung (basierend auf dem bekannten Gewicht 850 g)
 - Erwartetes Gewicht für volle und leere Flaschen
 - Max. Kastenkapazität (einstellbar, Standard: 4)
 

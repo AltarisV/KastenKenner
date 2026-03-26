@@ -18,7 +18,7 @@
   </header>
 
   <main>
-    <!-- Top row: classifier results + sensor info + bottle counter -->
+    <!-- Top row: classifier results + bottle counters -->
     <section class="cards">
       <div class="card" id="card-hardcode">
         <h2>Hardcoded Classifier</h2>
@@ -28,7 +28,13 @@
           <span class="bottle-total" id="hc-total">0</span> Flaschen
           <span class="bottle-detail">(Voll: <span id="hc-full">0</span> · Leer: <span id="hc-empty">0</span>)</span>
         </div>
+        <div class="hc-cap-row">
+          <label>Max. Flaschen:
+            <input type="number" id="hc-crate-cap" min="1" max="20" value="4" class="cal-cap-input">
+          </label>
+        </div>
         <button class="btn-reset-count" id="hc-reset">Zähler reset</button>
+        <p class="hc-prediction" id="hc-prediction"></p>
       </div>
 
       <div class="card" id="card-ml">
@@ -40,8 +46,17 @@
           <span class="bottle-detail">(Voll: <span id="ml-full">0</span> · Leer: <span id="ml-empty">0</span>)</span>
         </div>
         <button class="btn-reset-count" id="ml-reset">Zähler reset</button>
+        <div class="anomaly-threshold-row">
+          <label>Ignorieren ab Anomaly ≥
+            <input type="number" id="ml-anomaly-threshold" min="0" max="0.99" step="0.01" value="0.3" class="cal-cap-input">
+          </label>
+          <span class="anomaly-hint">(0 = aus)</span>
+        </div>
       </div>
+    </section>
 
+    <!-- Sensor info + chart -->
+    <section class="sensor-row">
       <div class="card" id="card-sensor">
         <h2>Sensor Info</h2>
         <table>
@@ -52,46 +67,45 @@
           <tr><td>Expected frames</td><td id="sensor-expected">9</td></tr>
         </table>
       </div>
-    </section>
-
-    <!-- Calibration -->
-    <section class="calibration-section">
-      <h2>Kalibrierung <span id="cal-status" class="cal-badge">nicht kalibriert</span></h2>
-      <p class="cal-hint">
-        Schritt 1: Leeren Kasten auf die Waage stellen → <b>Leerer Kasten</b> drücken (= Tare).<br>
-        Schritt 2: Eine <b>volle</b> Flasche reinstellen → <b>Volle Flasche rein</b> drücken (5 s Countdown). Daraus wird die Gramm-Umrechnung berechnet (890 g).<br>
-        Schritt 3: Eine <b>leere</b> Flasche reinstellen → <b>Leere Flasche rein</b> drücken (5 s Countdown).<br>
-        Die Kalibrierung wird automatisch gespeichert.
-      </p>
-      <div class="cal-buttons">
-        <button class="cal-btn" id="cal-idle">&#x1f4e6; Leerer Kasten (Tare)</button>
-        <button class="cal-btn" id="cal-put-full">&#x1f37a; Volle Flasche rein (890 g)</button>
-        <button class="cal-btn" id="cal-put-empty">&#x1f37b; Leere Flasche rein</button>
+      <div class="chart-section">
+        <h2>Live Sensor Chart</h2>
+        <canvas id="chart" width="900" height="180"></canvas>
       </div>
-      <div class="cal-buttons" style="margin-top:0.4rem; align-items:center">
-        <label class="cal-cap-label">Max. Flaschen im Kasten:
-          <input type="number" id="cal-crate-cap" min="1" max="20" value="4" class="cal-cap-input">
-        </label>
-        <button id="btn-cal-clear" class="cal-btn cal-btn-danger">Kalibrierung zurücksetzen</button>
+    </section>
+
+    <!-- Bottom row: log left, calibration right -->
+    <section class="bottom-row">
+      <div class="log-section">
+        <h2>Event Log</h2>
+        <ul id="event-log"></ul>
       </div>
-      <p class="cal-bottle-weights" id="cal-bottle-weights"></p>
-      <p class="cal-countdown" id="cal-countdown"></p>
-      <table class="cal-table" id="cal-table">
-        <thead><tr><th>Aktion</th><th>Δraw</th><th>sd</th><th>Gramm</th><th>Zeitpunkt</th></tr></thead>
-        <tbody id="cal-tbody"></tbody>
-      </table>
-    </section>
 
-    <!-- Chart -->
-    <section class="chart-section">
-      <h2>Live Sensor Chart</h2>
-      <canvas id="chart" width="900" height="260"></canvas>
-    </section>
-
-    <!-- Event log -->
-    <section class="log-section">
-      <h2>Event Log</h2>
-      <ul id="event-log"></ul>
+      <div class="calibration-section">
+        <h2>Kalibrierung <span id="cal-status" class="cal-badge">nicht kalibriert</span></h2>
+        <p class="cal-hint">
+          Schritt 1: Leeren Kasten auf die Waage stellen → <b>Leerer Kasten</b> drücken (= Tare).<br>
+          Schritt 2: Eine <b>volle</b> Flasche reinstellen → <b>Volle Flasche rein</b> drücken (5 s Countdown).<br>
+          Schritt 3: Eine <b>leere</b> Flasche reinstellen → <b>Leere Flasche rein</b> drücken (5 s Countdown).<br>
+          Die Kalibrierung wird automatisch gespeichert.
+        </p>
+        <div class="cal-buttons">
+          <button class="cal-btn" id="cal-idle">&#x1f4e6; Leerer Kasten (Tare)</button>
+          <button class="cal-btn" id="cal-put-full">&#x1f37a; Volle Flasche rein</button>
+          <button class="cal-btn" id="cal-put-empty">&#x1f37b; Leere Flasche rein</button>
+        </div>
+        <div class="cal-buttons" style="margin-top:0.4rem; align-items:center">
+          <label class="cal-cap-label">Max. Flaschen im Kasten:
+            <input type="number" id="cal-crate-cap" min="1" max="20" value="4" class="cal-cap-input">
+          </label>
+          <button id="btn-cal-clear" class="cal-btn cal-btn-danger">Kalibrierung zurücksetzen</button>
+        </div>
+        <p class="cal-bottle-weights" id="cal-bottle-weights"></p>
+        <p class="cal-countdown" id="cal-countdown"></p>
+        <table class="cal-table" id="cal-table">
+          <thead><tr><th>Aktion</th><th>Δraw</th><th>sd</th><th>Gramm</th><th>Zeitpunkt</th></tr></thead>
+          <tbody id="cal-tbody"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 

@@ -15,7 +15,7 @@ header {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.8rem;
 }
 
 h1 { font-size: 1.6rem; }
@@ -55,9 +55,9 @@ button:hover { background: #16498a; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1rem;
 }
 
 .card {
@@ -89,10 +89,28 @@ button:hover { background: #16498a; }
 .card td:first-child { color: #8eaccd; padding-right: 0.6rem; }
 .card td:last-child  { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* ── Sensor row (sensor card + chart side by side) ──────────── */
+
+.sensor-row {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Bottom row (log left, calibration right) ───────────────── */
+
+.bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 /* ── Chart ──────────────────────────────────────────────────── */
 
 .chart-section {
-  margin-bottom: 1.2rem;
+  margin-bottom: 0;
 }
 .chart-section h2 {
   font-size: 1rem;
@@ -116,7 +134,7 @@ canvas {
 
 #event-log {
   list-style: none;
-  max-height: 260px;
+  max-height: 300px;
   overflow-y: auto;
   background: #0f1a30;
   border-radius: 10px;
@@ -124,6 +142,12 @@ canvas {
   font-family: "Fira Code", "Cascadia Mono", monospace;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.bottom-row .log-section {
+  background: #16213e;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
 }
 
 #event-log li {
@@ -138,7 +162,7 @@ canvas {
   background: #16213e;
   border-radius: 10px;
   padding: 1rem 1.2rem;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0;
 }
 .calibration-section h2 {
   font-size: 1rem;
@@ -260,6 +284,35 @@ canvas {
 }
 .btn-reset-count:hover {
   background: #555;
+}
+
+.hc-prediction {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #ffb74d;
+  min-height: 1.2em;
+}
+
+.hc-cap-row {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.anomaly-threshold-row {
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+.anomaly-hint {
+  font-size: 0.75rem;
+  color: #777;
 }
 
 .cal-table {

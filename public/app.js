@@ -133,7 +133,9 @@ function runModelInference() {
       .map(r => `${r.label}: ${(r.value * 100).toFixed(1)}%`)
       .join('  ');
 
-    return { label: bestLabel, score: bestScore, debug };
+    const anomaly = typeof result.anomaly === 'number' ? result.anomaly : 0;
+
+    return { label: bestLabel, score: bestScore, anomaly, debug };
   } catch (err) {
     console.error('Inference error:', err);
     return { label: 'error', score: 0, debug: String(err) };
@@ -288,26 +290,37 @@ function runClassifiers() {
   // 2. ML model
   const ml = runModelInference();
   if (ml) {
-    elMlLabel.textContent = ml.label;
-    elMlDebug.textContent = ml.debug;
+    const anomalyStr = ml.anomaly ? `  ⚠ anomaly: ${ml.anomaly.toFixed(2)}` : '';
+    const anomalyThreshold = parseFloat(document.getElementById('ml-anomaly-threshold').value) || 0;
+    const blocked = anomalyThreshold > 0 && ml.anomaly >= anomalyThreshold;
 
-    // ML bottle count — stabilised: only count after N consecutive same frames
-    if (ml.label === mlCandidateLabel) {
-      mlCandidateCount++;
+    elMlLabel.textContent = blocked ? `⛔ ${ml.label}` : ml.label;
+    elMlDebug.textContent = ml.debug + anomalyStr + (blocked ? '  [IGNORED]' : '');
+
+    if (!blocked) {
+      // ML bottle count — stabilised: only count after N consecutive same frames
+      if (ml.label === mlCandidateLabel) {
+        mlCandidateCount++;
+      } else {
+        mlCandidateLabel = ml.label;
+        mlCandidateCount = 1;
+      }
+
+      if (mlCandidateCount >= ML_CONFIRM_FRAMES && mlCandidateLabel !== mlConfirmedLabel) {
+        mlConfirmedLabel = mlCandidateLabel;
+        applyBottleEvent('ml', mlConfirmedLabel);
+      }
     } else {
-      mlCandidateLabel = ml.label;
-      mlCandidateCount = 1;
-    }
-
-    if (mlCandidateCount >= ML_CONFIRM_FRAMES && mlCandidateLabel !== mlConfirmedLabel) {
-      mlConfirmedLabel = mlCandidateLabel;
-      applyBottleEvent('ml', mlConfirmedLabel);
+      // Reset stabilisation when blocked
+      mlCandidateLabel = '';
+      mlCandidateCount = 0;
     }
   }
 
   // 3. Event log (deduplicate consecutive identical combined entries)
   const mlLabel = ml ? ml.label : '…';
-  const entry   = `hardcode=${hc.label}, ml=${mlLabel}`;
+  const anomalyPart = ml && ml.anomaly ? ` (a:${ml.anomaly.toFixed(2)})` : '';
+  const entry   = `hardcode=${hc.label}, ml=${mlLabel}${anomalyPart}`;
   if (entry !== lastLogEntry) {
     lastLogEntry = entry;
     addLogEntry(entry);
@@ -367,6 +380,9 @@ const bottles = {
   ml: { full: 0, empty: 0 },
 };
 
+/** Timestamps of bottle removals from the crate (for empty-prediction). */
+const hcRemovalTimestamps = [];
+
 const bottleEls = {
   hc: { total: document.getElementById('hc-total'), full: document.getElementById('hc-full'), empty: document.getElementById('hc-empty') },
   ml: { total: document.getElementById('ml-total'), full: document.getElementById('ml-full'), empty: document.getElementById('ml-empty') },
@@ -384,10 +400,51 @@ function resetBottles(who) {
   bottles[who].full = 0;
   bottles[who].empty = 0;
   updateBottleUI(who);
+  if (who === 'hc') {
+    hcRemovalTimestamps.length = 0;
+    updateHcPrediction();
+  }
 }
 
 document.getElementById('hc-reset').addEventListener('click', () => resetBottles('hc'));
 document.getElementById('ml-reset').addEventListener('click', () => resetBottles('ml'));
+
+// ── HC empty prediction ─────────────────────────────────────────────
+
+const elHcPrediction = document.getElementById('hc-prediction');
+
+function formatDuration(ms) {
+  const totalSec = Math.round(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const parts = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || h > 0) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(' ');
+}
+
+function updateHcPrediction() {
+  const remaining = bottles.hc.full + bottles.hc.empty;
+  if (hcRemovalTimestamps.length < 2 || remaining <= 0) {
+    elHcPrediction.textContent = '';
+    return;
+  }
+  const first = hcRemovalTimestamps[0];
+  const last  = hcRemovalTimestamps[hcRemovalTimestamps.length - 1];
+  const elapsed = last - first;
+  if (elapsed <= 0) {
+    elHcPrediction.textContent = '';
+    return;
+  }
+  // Average time per removal
+  const avgMs = elapsed / (hcRemovalTimestamps.length - 1);
+  const etaMs = avgMs * remaining;
+  const etaTime = new Date(Date.now() + etaMs);
+  const timeStr = etaTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  elHcPrediction.textContent = `⏳ Kasten leer in ~${formatDuration(etaMs)} (∅ ${formatDuration(avgMs)}/Flasche) • ~${timeStr}`;
+}
 
 /** Expose current HC crate state for the classifier. */
 function getHcCrateState() {
@@ -409,22 +466,36 @@ function applyBottleEvent(who, label, result) {
     b.full  = result.resetFull;
     b.empty = result.resetEmpty;
     updateBottleUI(who);
+    if (who === 'hc') updateHcPrediction();
     return;
   }
+
+  // Track removals for prediction (before updating counts)
+  const prevTotal = b.full + b.empty;
 
   if (result && (result.fullDelta || result.emptyDelta)) {
     // Multi-bottle path
     b.full  = Math.max(0, b.full  + (result.fullDelta  || 0));
     b.empty = Math.max(0, b.empty + (result.emptyDelta || 0));
     updateBottleUI(who);
-    return;
+  } else {
+    // Legacy single-bottle path (ML model)
+    if (label === 'put_full')      { b.full++;  updateBottleUI(who); }
+    if (label === 'put_empty')     { b.empty++; updateBottleUI(who); }
+    if (label === 'remove_full')   { b.full  = Math.max(0, b.full  - 1); updateBottleUI(who); }
+    if (label === 'remove_empty')  { b.empty = Math.max(0, b.empty - 1); updateBottleUI(who); }
   }
 
-  // Legacy single-bottle path (ML model)
-  if (label === 'put_full')      { b.full++;  updateBottleUI(who); }
-  if (label === 'put_empty')     { b.empty++; updateBottleUI(who); }
-  if (label === 'remove_full')   { b.full  = Math.max(0, b.full  - 1); updateBottleUI(who); }
-  if (label === 'remove_empty')  { b.empty = Math.max(0, b.empty - 1); updateBottleUI(who); }
+  // Record removal timestamps for HC prediction
+  if (who === 'hc') {
+    const newTotal = b.full + b.empty;
+    const removed = prevTotal - newTotal;
+    if (removed > 0) {
+      const now = Date.now();
+      for (let i = 0; i < removed; i++) hcRemovalTimestamps.push(now);
+    }
+    updateHcPrediction();
+  }
 }
 
 // ── Calibration UI ────────────────────────────────────────────────
@@ -584,11 +655,19 @@ document.getElementById('btn-cal-clear').addEventListener('click', () => {
 // Initial render (restores calibration from localStorage)
 renderCalibrationUI();
 
-// Crate capacity input
-const elCrateCap = document.getElementById('cal-crate-cap');
-elCrateCap.value = getCrateCapacity();
-elCrateCap.addEventListener('change', () => {
-  const v = parseInt(elCrateCap.value, 10);
+// Crate capacity input (HC card + calibration panel, kept in sync)
+const elCrateCap   = document.getElementById('cal-crate-cap');
+const elHcCrateCap = document.getElementById('hc-crate-cap');
+const capValue = getCrateCapacity();
+elCrateCap.value   = capValue;
+elHcCrateCap.value = capValue;
+
+function syncCapacity(src) {
+  const v = parseInt(src.value, 10);
   if (v >= 1) setCrateCapacity(v);
-  elCrateCap.value = getCrateCapacity();
-});
+  const cur = getCrateCapacity();
+  elCrateCap.value   = cur;
+  elHcCrateCap.value = cur;
+}
+elCrateCap.addEventListener('change', () => syncCapacity(elCrateCap));
+elHcCrateCap.addEventListener('change', () => syncCapacity(elHcCrateCap));
